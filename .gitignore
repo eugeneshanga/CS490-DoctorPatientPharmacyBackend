@@ -1,0 +1,16 @@
+# Ignore config
+config.py
+
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+
+# Ignore VSCode project files
+.vscode/
+
+# Ignore environment files
+.env
+*.env
+
+# Ignore macOS metadata
+.DS_Store
