@@ -167,3 +167,41 @@ def fulfill_prescription(prescription_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@pharmacy_prescriptions_bp.route('/api/pharmacy/logs', methods=['GET'])
+def view_past_transactions():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+
+        search = request.args.get('search')
+
+        query = """
+        SELECT 
+            l.prescription_id,
+            CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
+            r.medication_name,
+            l.amount_billed,
+            l.timestamp
+        FROM pharmacy_logs l
+        JOIN prescriptions r ON l.prescription_id = r.prescription_id
+        JOIN patients p ON l.patient_id = p.patient_id
+        """
+
+        if search:
+            query += " WHERE r.medication_name LIKE %s OR CONCAT(p.first_name, ' ', p.last_name) LIKE %s"
+            cursor.execute(query + " ORDER BY p.last_name ASC, p.first_name ASC", (f"%{search}%", f"%{search}%"))
+        else:
+            cursor.execute(query + " ORDER BY p.last_name ASC, p.first_name ASC")
+
+        results = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        if results:
+            return jsonify(results)
+        else:
+            return jsonify({"message": "No transactions found."}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
