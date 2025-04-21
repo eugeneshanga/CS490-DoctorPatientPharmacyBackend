@@ -24,3 +24,7 @@ INSERT INTO prescriptions (
 --  Insert inventory to match prescription
 INSERT INTO pharmacy_inventory (pharmacy_id, drug_name, stock_quantity)
 VALUES (1, 'TestMed', 10);
+
+--add inventory pricing
+INSERT INTO pharmacy_inventory (pharmacy_id, drug_name, stock_quantity, price)
+VALUES (1, 'TestMed', 10, 65.00);
