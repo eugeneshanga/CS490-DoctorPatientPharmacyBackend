@@ -96,7 +96,7 @@ def get_prescription_requests():
             END AS inventory_conflict
         FROM prescriptions p
         JOIN patients pa ON p.patient_id = pa.patient_id
-        LEFT JOIN pharmacy_inventory pi ON p.medication_name = pi.drug_name 
+        LEFT JOIN pharmacy_inventory pi ON trim(lower(p.medication_name)) = trim(lower(pi.drug_name)) 
             AND p.pharmacy_id = pi.pharmacy_id
         WHERE p.status = 'pending'
         """
@@ -130,8 +130,8 @@ def fulfill_prescription(prescription_id):
 
         cursor.execute("""
             SELECT * FROM pharmacy_inventory
-            WHERE pharmacy_id = %s AND drug_name = %s
-        """, (prescription['pharmacy_id'], prescription['medication_name']))
+            WHERE pharmacy_id = %s AND trim(lower(drug_name)) = %s
+        """, (prescription['pharmacy_id'], prescription['medication_name'].strip().lower()))
         inventory = cursor.fetchone()
 
         if not inventory or inventory['stock_quantity'] <= 0:
@@ -146,8 +146,9 @@ def fulfill_prescription(prescription_id):
         cursor.execute("""
             UPDATE pharmacy_inventory
             SET stock_quantity = stock_quantity - 1
-            WHERE inventory_id = %s
-        """, (inventory['inventory_id'],))
+            WHERE pharmacy_id = %s AND trim(lower(drug_name)) = %s
+        """, (prescription['pharmacy_id'], prescription['medication_name'].strip().lower()
+        ))
 
         cursor.execute("""
             INSERT INTO pharmacy_logs (prescription_id, pharmacy_id, patient_id, amount_billed)
@@ -205,3 +206,69 @@ def view_past_transactions():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@pharmacy_prescriptions_bp.route('/api/pharmacy/inventory/add', methods=['POST'])
+def add_inventory_item():
+    data = request.get_json()
+
+    user_id = data.get('pharmacy_id')
+    drug_name = data.get('drug_name')
+    stock_quantity = data.get('stock_quantity')
+
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # Convert user_id to pharmacy_id
+        cursor.execute("SELECT pharmacy_id FROM pharmacies WHERE user_id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({"error": "Pharmacy not found for this user"}), 404
+
+        pharmacy_id = result[0]
+
+        if not pharmacy_id or not drug_name or not stock_quantity:
+            return jsonify({"error": "Missing required fields"}), 400
+    
+        # Insert the inventory with real pharmacy_id
+        cursor.execute("""
+            INSERT INTO pharmacy_inventory (pharmacy_id, drug_name, stock_quantity)
+                VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE stock_quantity = stock_quantity + VALUES(stock_quantity)
+        """, (pharmacy_id, drug_name, stock_quantity))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({"message": "Inventory item added successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@pharmacy_prescriptions_bp.route('/api/pharmacy/inventory', methods=['GET'])
+def get_inventory():
+    user_id = request.args.get('pharmacy_id')
+    if not user_id:
+        return jsonify({"error": "Missing pharmacy_id"}), 400
+
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+
+        # convert user_id to pharmacy_id
+        cursor.execute("SELECT pharmacy_id FROM pharmacies WHERE user_id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            return jsonify({"error": "Pharmacy not found for this user"}), 404
+
+        pharmacy_id = result["pharmacy_id"]
+
+        cursor.execute("""
+            SELECT drug_name, stock_quantity
+            FROM pharmacy_inventory
+            WHERE pharmacy_id = %s
+        """, (pharmacy_id,))
+        inventory = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify(inventory), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -12,10 +12,6 @@ CREATE TABLE pharmacy_logs (
 );
 -- add section for pricing inventory
 ALTER TABLE pharmacy_inventory ADD COLUMN price DECIMAL(10,2) DEFAULT 0.00;
-
--- remove unused column on table
-ALTER TABLE pharmacy_logs DROP COLUMN amount_billed;
-
--- add section for pharmacists to have a specific location column 
-ALTER TABLE users ADD COLUMN pharmacy_id INT;
-
+-- add section for unique drugs 
+ALTER TABLE pharmacy_inventory
+    ADD CONSTRAINT unique_pharmacy_drug UNIQUE (pharmacy_id, drug_name);
