@@ -4,6 +4,14 @@ from config import DB_CONFIG
 
 pharmacy_prescriptions_bp = Blueprint('pharmacy_prescriptions', __name__)
 
+def _get_pharmacy_id_for_user(user_id, cursor):
+    cursor.execute(
+        "SELECT pharmacy_id FROM pharmacies WHERE user_id = %s AND is_active = TRUE LIMIT 1",
+        (user_id,)
+    )
+    row = cursor.fetchone()
+    return row['pharmacy_id'] if row else None
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/prescriptions', methods=['GET'])
 def get_prescriptions():
     try:
@@ -111,64 +119,6 @@ def get_prescription_requests():
         return jsonify(results)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-@pharmacy_prescriptions_bp.route('/api/pharmacy/prescriptions/<int:prescription_id>/fulfill', methods=['POST'])
-def fulfill_prescription(prescription_id):
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT p.*, pa.patient_id
-            FROM prescriptions p
-            JOIN patients pa ON p.patient_id = pa.patient_id
-            WHERE p.prescription_id = %s AND p.status = 'pending'
-        """, (prescription_id,))
-        prescription = cursor.fetchone()
-
-        if not prescription:
-            return jsonify({"error": "Prescription not found or already fulfilled"}), 404
-        
-        drug_name_cleaned = prescription['medication_name'].strip().lower()
-        cursor.execute("""
-            SELECT * FROM pharmacy_inventory
-            WHERE pharmacy_id = %s AND drug_name = %s
-        """, (prescription['pharmacy_id'], drug_name_cleaned))
-        inventory = cursor.fetchone()
-
-        if not inventory or inventory['stock_quantity'] <= 0:
-            return jsonify({"error": "Inventory conflict: medication not available"}), 409
-
-        cursor.execute("""
-            UPDATE prescriptions
-            SET status = 'dispensed'
-            WHERE prescription_id = %s
-        """, (prescription_id,))
-
-        cursor.execute("""
-            UPDATE pharmacy_inventory
-            SET stock_quantity = stock_quantity - 1
-            WHERE pharmacy_id = %s AND drug_name = %s
-        """, (prescription['pharmacy_id'], drug_name_cleaned))
-
-        cursor.execute("""
-            INSERT INTO pharmacy_logs (prescription_id, pharmacy_id, patient_id, amount_billed)
-            VALUES (%s, %s, %s, %s)
-        """, (
-            prescription_id,
-            prescription['pharmacy_id'],
-            prescription['patient_id'],
-            49.99
-        ))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return jsonify({"message": "Prescription fulfilled and patient billed."}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
     
 @pharmacy_prescriptions_bp.route('/api/pharmacy/logs', methods=['GET'])
 def view_past_transactions():
@@ -209,71 +159,95 @@ def view_past_transactions():
 
 @pharmacy_prescriptions_bp.route('/api/pharmacy/inventory/add', methods=['POST'])
 def add_inventory_item():
-    data = request.get_json()
+    if not request.is_json:
+        return jsonify(error="Request body must be JSON"), 400
 
-    user_id = data.get('pharmacy_id')
-    drug_name = data.get('drug_name')
+    data = request.get_json()
+    user_id        = data.get('user_id')
+    drug_name      = data.get('drug_name')
     stock_quantity = data.get('stock_quantity')
 
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
-
-        # Convert user_id to pharmacy_id
-        cursor.execute("SELECT pharmacy_id FROM pharmacies WHERE user_id = %s", (user_id,))
-        result = cursor.fetchone()
-        if not result:
-            return jsonify({"error": "Pharmacy not found for this user"}), 404
-
-        pharmacy_id = result[0]
-
-        if not pharmacy_id or not drug_name or not stock_quantity:
-            return jsonify({"error": "Missing required fields"}), 400
-    
-        # Insert the inventory with real pharmacy_id
-        cursor.execute("""
-            INSERT INTO pharmacy_inventory (pharmacy_id, drug_name, stock_quantity)
-                VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE stock_quantity = stock_quantity + VALUES(stock_quantity)
-        """, (pharmacy_id, drug_name, stock_quantity))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({"message": "Inventory item added successfully"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-@pharmacy_prescriptions_bp.route('/api/pharmacy/inventory', methods=['GET'])
-def get_inventory():
-    user_id = request.args.get('pharmacy_id')
-    print("Received pharmacy_id:", user_id)
-    if not user_id:
-        return jsonify({"error": "Missing pharmacy_id"}), 400
+    if not user_id or not drug_name or stock_quantity is None:
+        return jsonify(error="Missing required fields"), 400
 
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
+        conn   = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
-        # convert user_id to pharmacy_id
-        cursor.execute("SELECT pharmacy_id FROM pharmacies WHERE user_id = %s", (user_id,))
-        result = cursor.fetchone()
-        if not result:
-            return jsonify({"error": "Pharmacy not found for this user"}), 404
+        # 1) Resolve pharmacy_id
+        pharm_id = _get_pharmacy_id_for_user(user_id, cursor)
+        if pharm_id is None:
+            return jsonify(error="Pharmacy not found for this user"), 404
 
-        pharmacy_id = result["pharmacy_id"]
-
+        # 2) See if an entry already exists
         cursor.execute("""
-            SELECT drug_name, stock_quantity
-            FROM pharmacy_inventory
-            WHERE pharmacy_id = %s
-        """, (pharmacy_id,))
-        inventory = cursor.fetchall()
+            SELECT stock_quantity
+              FROM pharmacy_inventory
+             WHERE pharmacy_id = %s
+               AND drug_name   = %s
+        """, (pharm_id, drug_name))
+        existing = cursor.fetchone()
+
+        if existing:
+            # 3a) Update
+            new_qty = existing['stock_quantity'] + int(stock_quantity)
+            cursor.execute("""
+                UPDATE pharmacy_inventory
+                   SET stock_quantity = %s
+                 WHERE pharmacy_id   = %s
+                   AND drug_name     = %s
+            """, (new_qty, pharm_id, drug_name))
+        else:
+            # 3b) Insert
+            cursor.execute("""
+                INSERT INTO pharmacy_inventory
+                    (pharmacy_id, drug_name, stock_quantity)
+                VALUES (%s, %s, %s)
+            """, (pharm_id, drug_name, int(stock_quantity)))
+
+        conn.commit()
+        return jsonify(message="Inventory item added successfully"), 201
+
+    except mysql.connector.Error as err:
+        conn.rollback()
+        return jsonify(error="Internal server error", detail=str(err)), 500
+
+    finally:
         cursor.close()
         conn.close()
+
+
+@pharmacy_prescriptions_bp.route('/api/pharmacy/inventory', methods=['GET'])
+def get_inventory():
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify(error="user_id is required"), 400
+
+    try:
+        conn   = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+
+        # 1) Resolve pharmacy_id
+        pharm_id = _get_pharmacy_id_for_user(user_id, cursor)
+        if pharm_id is None:
+            return jsonify(error="Pharmacy not found for this user"), 404
+
+        # 2) Fetch inventory
+        cursor.execute("""
+            SELECT drug_name, stock_quantity
+              FROM pharmacy_inventory
+             WHERE pharmacy_id = %s
+        """, (pharm_id,))
+        inventory = cursor.fetchall()
+
         return jsonify(inventory), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    except mysql.connector.Error as err:
+        return jsonify(error="Internal server error", detail=str(err)), 500
+
+    finally:
+        cursor.close()
+        conn.close()
     
 @pharmacy_prescriptions_bp.route('/api/pharmacy/getPharmacyId', methods=['GET'])
 def get_pharmacy_id():

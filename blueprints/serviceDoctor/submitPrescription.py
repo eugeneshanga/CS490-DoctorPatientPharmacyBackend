@@ -59,20 +59,21 @@ def request_prescription():
             return jsonify(error=f"Missing required field: {field}"), 400
 
     try:
-        doctor_id   = int(data['doctor_id'])
-        patient_id  = int(data['patient_id'])
-        drug_id     = int(data['drug_id'])
-        dosage      = str(data['dosage']).strip()
-        instructions= str(data['instructions']).strip()
+        doctor_id    = int(data['doctor_id'])
+        patient_id   = int(data['patient_id'])
+        drug_id      = int(data['drug_id'])
+        dosage       = str(data['dosage']).strip()
+        instructions = str(data['instructions']).strip()
     except (ValueError, TypeError):
         return jsonify(error="doctor_id, patient_id and drug_id must be integers"), 400
 
-    # insert into prescriptions
+    conn = None
+    cursor = None
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
 
-        # make sure the drug exists
+        # ensure the drug exists
         cursor.execute(
             "SELECT 1 FROM weight_loss_drugs WHERE drug_id = %s",
             (drug_id,)
@@ -80,12 +81,33 @@ def request_prescription():
         if not cursor.fetchone():
             return jsonify(error=f"Drug id {drug_id} not found"), 404
 
-        # create prescription (pharmacy_id left NULL until filled)
+        # look up patient's preferred pharmacy
         cursor.execute("""
-               INSERT INTO prescriptions
-                 (doctor_id, patient_id, pharmacy_id, drug_id, dosage, instructions, status)
-               VALUES (%s, %s, NULL, %s, %s, %s, 'pending')
-        """, (doctor_id, patient_id, drug_id, dosage, instructions))
+            SELECT pharmacy_id
+              FROM patient_preferred_pharmacy
+             WHERE patient_id = %s
+        """, (patient_id,))
+        pref = cursor.fetchone()
+        if not pref:
+            return jsonify(
+                error=f"No preferred pharmacy set for patient {patient_id}"
+            ), 400
+
+        pharmacy_id = pref['pharmacy_id']
+
+        # now insert the prescription with that pharmacy_id
+        cursor.execute("""
+            INSERT INTO prescriptions
+              (doctor_id, patient_id, pharmacy_id, drug_id, dosage, instructions, status)
+            VALUES (%s, %s, %s, %s, %s, %s, 'pending')
+        """, (
+            doctor_id,
+            patient_id,
+            pharmacy_id,
+            drug_id,
+            dosage,
+            instructions
+        ))
         conn.commit()
 
         return jsonify(
@@ -98,5 +120,7 @@ def request_prescription():
         return jsonify(error="Internal server error"), 500
 
     finally:
-        cursor.close()
-        conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
