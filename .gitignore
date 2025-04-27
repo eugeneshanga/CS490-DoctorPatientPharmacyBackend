@@ -8,6 +8,9 @@ __pycache__/
 # Ignore VSCode project files
 .vscode/
 
+# JetBrains IDEs
+.idea
+
 # Ignore environment files
 .env
 *.env
