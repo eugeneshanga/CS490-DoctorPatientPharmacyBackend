@@ -5,6 +5,7 @@ from blueprints.pharmacyDashboard.prescriptions import pharmacy_prescriptions_bp
 from blueprints.pharmacyDashboard.patients import pharmacy_patients_bp
 from blueprints.serviceDoctor.submitPrescription import prescriptions_bp
 from blueprints.prescriptionQueue.queue import pharmacy_queue_bp
+from blueprints.drugPrices.prices import prices_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -13,6 +14,7 @@ app.register_blueprint(pharmacy_prescriptions_bp)
 app.register_blueprint(pharmacy_patients_bp)
 app.register_blueprint(prescriptions_bp)
 app.register_blueprint(pharmacy_queue_bp)
+app.register_blueprint(prices_bp)
 
 @app.route('/api/hello', methods=['GET'])
 def hello():
