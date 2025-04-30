@@ -1,19 +1,26 @@
-# Ignore config
+# Ignore config if it holds sensitive DB creds
 config.py
 
-# Ignore compiled Python files
+# Byte-compiled / optimized Python files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Ignore VSCode project files
+# pytest cache
+.pytest_cache/
+
+# Coverage reports
+.coverage
+htmlcov/
+
+# Virtual envs (if you ever create one locally)
+venv/
+.env/
+
+# IDE settings
 .vscode/
+.idea/
 
-# JetBrains IDEs
-.idea
-
-# Ignore environment files
-.env
-*.env
-
-# Ignore macOS metadata
+# macOS / Windows metadata
 .DS_Store
+Thumbs.db
