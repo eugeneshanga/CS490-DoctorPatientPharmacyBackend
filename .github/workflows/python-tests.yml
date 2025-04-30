@@ -24,6 +24,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt || echo "no requirements.txt"
           pip install pytest pytest-cov
+          python -m pip install --upgrade pip
+          pip install Flask mysql-connector-python flask-cors
+          pip install pytest pytest-cov
 
       - name: Run tests & enforce 60% coverage
         run: |
