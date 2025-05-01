@@ -4,6 +4,7 @@ from config import DB_CONFIG
 
 prices_bp = Blueprint('prices', __name__, url_prefix='/api/prices')
 
+
 def _get_pharmacy_id_for_user(user_id, cursor):
     cursor.execute(
         "SELECT pharmacy_id FROM pharmacies WHERE user_id = %s AND is_active = TRUE LIMIT 1",
@@ -12,13 +13,14 @@ def _get_pharmacy_id_for_user(user_id, cursor):
     row = cursor.fetchone()
     return row['pharmacy_id'] if row else None
 
+
 @prices_bp.route('/current-prices', methods=['GET'])
 def get_prices():
     user_id = request.args.get('user_id', type=int)
     if not user_id:
         return jsonify(error="user_id is required"), 400
 
-    conn   = mysql.connector.connect(**DB_CONFIG)
+    conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     # map to pharmacy_id
@@ -45,12 +47,12 @@ def update_price():
     data = request.get_json(force=True)
     user_id = data.get('user_id')
     drug_id = data.get('drug_id')
-    price   = data.get('price')
+    price = data.get('price')
 
     if not all([user_id, drug_id, price is not None]):
         return jsonify(error="user_id, drug_id, and price are required"), 400
 
-    conn   = mysql.connector.connect(**DB_CONFIG)
+    conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()
 
     pharm_id = _get_pharmacy_id_for_user(user_id, cursor)
@@ -74,4 +76,3 @@ def update_price():
     cursor.close()
     conn.close()
     return jsonify(message="Price updated"), 200
-

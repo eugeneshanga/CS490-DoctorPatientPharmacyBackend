@@ -5,6 +5,7 @@ import sys
 
 dispense_prescription_bp = Blueprint('dispense_prescription', __name__, url_prefix='/api/pharmacy')
 
+
 def _get_pharmacy_id_for_user(user_id, cursor):
     cursor.execute("""
         SELECT pharmacy_id
@@ -15,6 +16,7 @@ def _get_pharmacy_id_for_user(user_id, cursor):
     """, (user_id,))
     row = cursor.fetchone()
     return row['pharmacy_id'] if row else None
+
 
 @dispense_prescription_bp.route('/prescriptions/<int:prescription_id>/dispense', methods=['POST'])
 def dispense_prescription(prescription_id):
@@ -45,7 +47,7 @@ def dispense_prescription(prescription_id):
             return jsonify(error="Prescription not ready for dispense"), 400
 
         patient_id = pres['patient_id']
-        drug_id    = pres['drug_id']
+        drug_id = pres['drug_id']
 
         # 4) lookup the current price for that drug
         cursor.execute("""
@@ -93,6 +95,7 @@ def dispense_prescription(prescription_id):
     finally:
         cursor.close()
         conn.close()
+
 
 @dispense_prescription_bp.route('/prescriptions/filled', methods=['GET'])
 def get_filled_prescriptions():

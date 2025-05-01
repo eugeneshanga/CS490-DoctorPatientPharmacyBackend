@@ -4,6 +4,7 @@ from config import DB_CONFIG
 
 pharmacy_prescriptions_bp = Blueprint('pharmacy_prescriptions', __name__)
 
+
 def _get_pharmacy_id_for_user(user_id, cursor):
     cursor.execute(
         "SELECT pharmacy_id FROM pharmacies WHERE user_id = %s AND is_active = TRUE LIMIT 1",
@@ -11,6 +12,7 @@ def _get_pharmacy_id_for_user(user_id, cursor):
     )
     row = cursor.fetchone()
     return row['pharmacy_id'] if row else None
+
 
 @pharmacy_prescriptions_bp.route('/api/pharmacy/prescriptions', methods=['GET'])
 def get_prescriptions():
@@ -21,7 +23,7 @@ def get_prescriptions():
         search = request.args.get('search')
 
         base_query = """
-        SELECT 
+        SELECT
             p.prescription_id,
             CONCAT(pa.first_name, ' ', pa.last_name) AS patient_name,
             p.medication_name,
@@ -51,6 +53,7 @@ def get_prescriptions():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/prescriptions/<int:prescription_id>', methods=['GET'])
 def get_prescription_by_id(prescription_id):
     try:
@@ -58,7 +61,7 @@ def get_prescription_by_id(prescription_id):
         cursor = conn.cursor(dictionary=True)
 
         query = """
-        SELECT 
+        SELECT
             p.prescription_id,
             CONCAT(pa.first_name, ' ', pa.last_name) AS patient_name,
             p.medication_name,
@@ -84,6 +87,7 @@ def get_prescription_by_id(prescription_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/requests', methods=['GET'])
 def get_prescription_requests():
     try:
@@ -92,20 +96,20 @@ def get_prescription_requests():
         pharmacy_id = request.args.get('pharmacy_id')
         print("Received pharmacy_id:", pharmacy_id)
         query = """
-        SELECT 
+        SELECT
             p.prescription_id,
             CONCAT(pa.first_name, ' ', pa.last_name) AS patient_name,
             p.medication_name,
             p.dosage,
             p.status,
             pi.stock_quantity,
-            CASE 
+            CASE
                 WHEN pi.stock_quantity IS NULL OR pi.stock_quantity <= 0 THEN TRUE
                 ELSE FALSE
             END AS inventory_conflict
         FROM prescriptions p
         JOIN patients pa ON p.patient_id = pa.patient_id
-        LEFT JOIN pharmacy_inventory pi ON lower(trim(p.medication_name)) = lower(trim(pi.drug_name)) 
+        LEFT JOIN pharmacy_inventory pi ON lower(trim(p.medication_name)) = lower(trim(pi.drug_name))
             AND p.pharmacy_id = pi.pharmacy_id
         WHERE p.status = 'pending' AND p.pharmacy_id = %s
         """
@@ -119,7 +123,8 @@ def get_prescription_requests():
         return jsonify(results)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
+
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/logs', methods=['GET'])
 def view_past_transactions():
     try:
@@ -129,7 +134,7 @@ def view_past_transactions():
         search = request.args.get('search')
 
         query = """
-        SELECT 
+        SELECT
             l.prescription_id,
             CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
             r.medication_name,
@@ -157,21 +162,22 @@ def view_past_transactions():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/inventory/add', methods=['POST'])
 def add_inventory_item():
     if not request.is_json:
         return jsonify(error="Request body must be JSON"), 400
 
     data = request.get_json()
-    user_id        = data.get('user_id')
-    drug_name      = data.get('drug_name')
+    user_id = data.get('user_id')
+    drug_name = data.get('drug_name')
     stock_quantity = data.get('stock_quantity')
 
     if not user_id or not drug_name or stock_quantity is None:
         return jsonify(error="Missing required fields"), 400
 
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
         # 1) Resolve pharmacy_id
@@ -224,7 +230,7 @@ def get_inventory():
         return jsonify(error="user_id is required"), 400
 
     try:
-        conn   = mysql.connector.connect(**DB_CONFIG)
+        conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
         # 1) Resolve pharmacy_id
@@ -248,7 +254,8 @@ def get_inventory():
     finally:
         cursor.close()
         conn.close()
-    
+
+
 @pharmacy_prescriptions_bp.route('/api/pharmacy/getPharmacyId', methods=['GET'])
 def get_pharmacy_id():
     user_id = request.args.get('user_id')

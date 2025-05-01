@@ -5,6 +5,7 @@ import sys
 
 pharmacy_queue_bp = Blueprint('pharmacy_queue', __name__, url_prefix='/api/pharmacy')
 
+
 def _get_pharmacy_id_for_user(user_id, cursor):
     cursor.execute("""
         SELECT pharmacy_id
@@ -15,6 +16,7 @@ def _get_pharmacy_id_for_user(user_id, cursor):
     """, (user_id,))
     row = cursor.fetchone()
     return row['pharmacy_id'] if row else None
+
 
 @pharmacy_queue_bp.route('/queue', methods=['GET'])
 def get_prescription_queue():

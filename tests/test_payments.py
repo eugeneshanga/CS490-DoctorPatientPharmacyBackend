@@ -1,5 +1,7 @@
 # tests/test_payments.py
 
+import blueprints.paymentHistory.payments as payments_mod
+from app import app
 import os
 import sys
 import types
@@ -12,30 +14,37 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 # Stub out config before importing
 sys.modules['config'] = types.SimpleNamespace(DB_CONFIG={})
 
-from app import app
-import blueprints.paymentHistory.payments as payments_mod
 
 # --- Helper classes to mock DB connections and cursors ---
+
 class DummyCursor:
     def __init__(self, rows=None):
         self._rows = rows or []
+
     def execute(self, query, params=None):
         pass
+
     def fetchall(self):
         return self._rows
+
     def fetchone(self):
         # for _get_pharmacy_id_for_user
         return None
+
     def close(self):
         pass
+
 
 class DummyConn:
     def __init__(self, rows=None):
         self._rows = rows or []
+
     def cursor(self, dictionary=True):
         return DummyCursor(self._rows)
+
     def close(self):
         pass
+
 
 @pytest.fixture
 def client():
@@ -43,10 +52,12 @@ def client():
 
 # --- Tests for GET /api/pharmacy/payments ---
 
+
 def test_get_payments_missing_user(client):
     resp = client.get('/api/pharmacy/payments')
     assert resp.status_code == 400
     assert resp.get_json().get('error') == 'user_id is required'
+
 
 def test_get_payments_no_pharmacy(monkeypatch, client):
     # stub out connect so cursor exists
@@ -56,6 +67,7 @@ def test_get_payments_no_pharmacy(monkeypatch, client):
     resp = client.get('/api/pharmacy/payments?user_id=1')
     assert resp.status_code == 404
     assert resp.get_json().get('error') == 'No active pharmacy found for that user'
+
 
 def test_get_payments_success(monkeypatch, client):
     # prepare mixed payments

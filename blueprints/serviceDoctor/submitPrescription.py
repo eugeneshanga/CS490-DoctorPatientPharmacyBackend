@@ -6,6 +6,7 @@ from config import DB_CONFIG
 
 prescriptions_bp = Blueprint('prescriptions', __name__, url_prefix='/api/prescriptions')
 
+
 @prescriptions_bp.route('/drugs', methods=['GET'])
 def list_drugs():
     """
@@ -36,7 +37,6 @@ def list_drugs():
         conn.close()
 
 
-
 @prescriptions_bp.route('/request', methods=['POST'])
 def request_prescription():
     """
@@ -54,15 +54,15 @@ def request_prescription():
 
     data = request.get_json()
     # required fields
-    for field in ('doctor_id','patient_id','drug_id','dosage','instructions'):
+    for field in ('doctor_id', 'patient_id', 'drug_id', 'dosage', 'instructions'):
         if not data.get(field):
             return jsonify(error=f"Missing required field: {field}"), 400
 
     try:
-        doctor_id    = int(data['doctor_id'])
-        patient_id   = int(data['patient_id'])
-        drug_id      = int(data['drug_id'])
-        dosage       = str(data['dosage']).strip()
+        doctor_id = int(data['doctor_id'])
+        patient_id = int(data['patient_id'])
+        drug_id = int(data['drug_id'])
+        dosage = str(data['dosage']).strip()
         instructions = str(data['instructions']).strip()
     except (ValueError, TypeError):
         return jsonify(error="doctor_id, patient_id and drug_id must be integers"), 400
@@ -111,8 +111,8 @@ def request_prescription():
         conn.commit()
 
         return jsonify(
-          message="Prescription requested successfully",
-          prescription_id=cursor.lastrowid
+            message="Prescription requested successfully",
+            prescription_id=cursor.lastrowid
         ), 201
 
     except mysql.connector.Error as err:

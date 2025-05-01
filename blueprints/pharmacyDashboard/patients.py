@@ -4,6 +4,7 @@ from config import DB_CONFIG
 
 pharmacy_patients_bp = Blueprint('pharmacy_patients', __name__)
 
+
 @pharmacy_patients_bp.route('/api/pharmacy/patients', methods=['GET'])
 def get_patients():
     try:

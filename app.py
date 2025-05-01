@@ -20,9 +20,11 @@ app.register_blueprint(prices_bp)
 app.register_blueprint(dispense_prescription_bp)
 app.register_blueprint(payments_bp)
 
+
 @app.route('/api/hello', methods=['GET'])
 def hello():
     return jsonify(message="Hello World!")
+
 
 if __name__ == '__main__':
     print(app.url_map)

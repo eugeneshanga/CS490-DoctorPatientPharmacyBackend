@@ -5,6 +5,7 @@ from config import DB_CONFIG
 
 payments_bp = Blueprint('payments', __name__, url_prefix='/api/pharmacy')
 
+
 def _get_pharmacy_id_for_user(user_id, cursor):
     cursor.execute("""
         SELECT pharmacy_id
@@ -31,7 +32,7 @@ def get_pharmacy_payments():
     if not user_id:
         return jsonify(error="user_id is required"), 400
 
-    conn   = mysql.connector.connect(**DB_CONFIG)
+    conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
     # resolve pharmacy_id from user
@@ -60,8 +61,7 @@ def get_pharmacy_payments():
     conn.close()
 
     # split into two lists
-    fulfilled   = [row for row in payments if row['is_fulfilled']]
+    fulfilled = [row for row in payments if row['is_fulfilled']]
     unfulfilled = [row for row in payments if not row['is_fulfilled']]
 
-    return jsonify({ "fulfilled": fulfilled, "unfulfilled": unfulfilled }), 200
-
+    return jsonify({"fulfilled": fulfilled, "unfulfilled": unfulfilled}), 200
