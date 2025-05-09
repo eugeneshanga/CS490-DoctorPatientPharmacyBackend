@@ -1,0 +1,40 @@
+name: Check Requirements Sync
+
+on:
+  pull_request:
+    paths:
+      - "requirements.txt"
+      - "**/*.py"
+  push:
+    branches:
+      - main
+
+jobs:
+  check-requirements:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set Up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"  
+
+      - name: Install Dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verify Requirements.txt is Up to Date
+        run: |
+          source venv/bin/activate
+          pip freeze > requirements_new.txt
+          if ! diff -q requirements.txt requirements_new.txt; then
+            echo "❌ ERROR: requirements.txt is outdated! Run 'pip freeze > requirements.txt' and commit the changes."
+            exit 1
+          else
+            echo "✅ requirements.txt is up to date!"
+          fi
