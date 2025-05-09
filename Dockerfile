@@ -24,4 +24,4 @@ ENV FLASK_RUN_HOST=0.0.0.0
 
 # Run the Flask application (assuming the entry point is app.py or wsgi.py)
 # If your Flask app is launched via a different command or uses gunicorn, adjust accordingly.
-CMD ["flask", "run", "--port=5000"]
+CMD ["flask", "run", "--port=5001"]
