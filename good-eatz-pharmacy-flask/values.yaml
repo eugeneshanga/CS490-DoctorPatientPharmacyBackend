@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: nstern2002/flask-good-eatz-pharmacy
+  repository: cs490group6/flask-good-eatz-pharmacy
   pullPolicy: Always
   tag: "latest"
 
