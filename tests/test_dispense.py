@@ -9,7 +9,7 @@ import types
 import pytest
 import mysql.connector
 
-# stub out config before importing app.
+# stub out config before importing app
 sys.modules['config'] = types.SimpleNamespace(DB_CONFIG={})
 
 from app import app
