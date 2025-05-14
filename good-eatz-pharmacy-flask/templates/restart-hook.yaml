@@ -2,7 +2,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: restart-good-eatz-react
+  name: restart-good-eatz-pharmacy-flask
   namespace: argocd
   annotations:
     argocd.argoproj.io/hook: PostSync
